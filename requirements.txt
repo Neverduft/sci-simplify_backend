@@ -1,0 +1,6 @@
+PyMuPDF
+numpy>=1.22.0
+scikit-learn
+tensorflow>=2.8.1
+tensorflow-hub
+openai>=0.27.0
