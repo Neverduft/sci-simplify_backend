@@ -25,7 +25,7 @@ async def root():
     return {"message": "Online"}
 
 
-@app.post("/upload")
+@app.post("/analyze")
 async def upload_pdf(pdf: UploadFile = File(...)):
     try:
         # Save the uploaded file

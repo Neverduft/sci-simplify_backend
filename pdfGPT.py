@@ -60,7 +60,9 @@ def text_to_chunks(texts, word_length=150, start_page=1):
 
 class SemanticSearch:
     def __init__(self):
-        self.use = hub.load("sentence-encoder") # https://tfhub.dev/google/universal-sentence-encoder/4
+        self.use = hub.load(
+            "sentence-encoder"
+        )  # Download model from here https://tfhub.dev/google/universal-sentence-encoder/4
         self.fitted = False
 
     def fit(self, data, batch=1000, n_neighbors=5):
@@ -98,20 +100,22 @@ def load_recommender(path, start_page=1):
     return "Corpus Loaded."
 
 
-def generate_text(openAI_key, prompt, model="gpt-3.5-turbo-0301"):
+def generate_text(
+    openAI_key, prompt, role="user", max_tokens=2048, model="gpt-3.5-turbo-0301"
+):
     openai.api_key = openAI_key
     completions = openai.ChatCompletion.create(
         model=model,
-         messages=[{"role": "user", "content": prompt}],
-        max_tokens=2048,
+        messages=[{"role": role, "content": prompt}],
+        max_tokens=max_tokens,
         temperature=0.7,
     )
-    message = completions.choices[0].message['content']
+    message = completions.choices[0].message["content"]
     print(message)
     return message
 
 
-def generate_answer(question, openAI_key):
+def generate_answer(question, openAI_key): # TODO Fix this prompt
     topn_chunks = recommender(question)
     prompt = ""
     prompt += "search results:\n\n"
@@ -126,41 +130,45 @@ def generate_answer(question, openAI_key):
         "don't add any additional information. Make sure the answer is correct and don't output false content. "
         "If the text does not relate to the query, simply state 'Text Not Found in PDF'. Ignore outlier "
         "search results which has nothing to do with the question. Only answer what is asked. The "
-        "answer should be short and concise. Answer step-by-step.\n\nQuery:\n{question}\nAnswer:\n"
+        f"answer should be short and concise. Answer step-by-step.\n\nQuery:\n{question}\nAnswer:\n"
     )
 
     answer = generate_text(openAI_key, prompt)
     return answer
 
 
-def generate_blog_post_section(knowledge_level, section, openAI_key):
-    question = "What is the section {section} about?"
+def generate_blog_post_section(knowledge_level, section, sections, openAI_key):
+    question = f"What is the section '{section}' about?"  # TODO Add to prompt?
+
     topn_chunks = recommender(question)
-    prompt = (
-        "Instructions: Reformat the following research paper section into a section of a blog post. Make the content understandable "
-        "for someone with the knowledge level of {knowledge_level}. Use the [Page Number] notation for "
-        "citations. Only include information found in the section and don't add any additional information. Make sure the content "
-        "is correct and don't output false content. Ensure the content is clear, concise, organized, and accurate. Think and answer step by step.\n\n"
-        "Knowledge Level: {knowledge_level}\n"
-        "Research Paper section:\n\n"
+    prompt = ""
+    prompt += "Search results:\n\n"
+    for c in topn_chunks:
+        prompt += c + "\n\n"
+
+        # TODO test sections [,...] current section: ,..
+
+    prompt += (
+        "Instructions: Using the given search results reformat the following section of a paper into a part of a blog post. "
+        f"Make the content understandable for someone with the knowledge level of {knowledge_level}. "
+        "Only include information found in the section and don't add any additional information. Make sure the content "
+        "is correct and don't output false content. Ensure the content is clear, concise, organized, and accurate. Think step by step.\n\n"
+        f"Research paper sections: {sections}\n"
+        f"Research paper current section: {section}\n\n"
     )
 
-    if topn_chunks is not None:
-        for c in topn_chunks:
-            prompt += c + "\n\n"
+    prompt += "Output:\n\n"
 
-    prompt += "\nOutput JSON:\n"
-
-    answer = generate_text(openAI_key, prompt)
+    answer = generate_text(openAI_key, prompt, max_tokens=500)
     return answer
 
 
 def get_main_sections(openAI_key):
-    question = "What are the main sections of this paper? The answer must consists out of only the titles of the sections separated by commas."
+    question = "What are the main sections of this paper?"
 
     topn_chunks = recommender(question)
     prompt = ""
-    prompt += "search results:\n\n"
+    prompt += "Search results:\n\n"
     for c in topn_chunks:
         prompt += c + "\n\n"
 
@@ -168,16 +176,13 @@ def get_main_sections(openAI_key):
         "Instructions: Compose a comprehensive reply to the query using the search results given. "
         "Only include information found in the results and "
         "don't add any additional information. Make sure the answer is correct and don't output false content. "
-        "Ignore outlier search results which has nothing to do with the question. Only answer what is asked. The "
-        "answer should be short and concise. Answer step-by-step. \n\nQuery: {question}\nAnswer: "
+        "Ignore outlier search results which has nothing to do with the question. Only answer what is asked. "
+        f"Think step by step. The answer must consist only out of titles of the sections separated by commas.\n\nQuery: {question}\n\nAnswer: "
     )
 
-    prompt += f"Query: {question}\nAnswer:"
-    answer = generate_text(openAI_key, prompt)
-    return answer
+    print(prompt)
 
-
- 
+    main_sections = generate_text(openAI_key, prompt, "user")
     return main_sections
 
 
@@ -201,23 +206,32 @@ def question_answer(url, file_path, question, summarize, knowledge_level, openAI
     if question.strip() == "" or summarize:
         main_sections = get_main_sections(openAI_key)
         main_sections_list = [
-            section.strip() for section in main_sections.split(",") if section.strip()
+            section.strip().replace(".", "")
+            for section in main_sections.split(",")
+            if section.strip()  # TODO fix prompt no references and no page numbers in blog
         ]
         content = []
+        # print(main_sections_list)
+
         for section in main_sections_list:
             content.append(
-                generate_blog_post_section(knowledge_level, section, openAI_key)
+                generate_blog_post_section(
+                    knowledge_level, section, main_sections, openAI_key
+                )
             )
-        
+            # break
+
+        print(content)
+
         # Save the content as a JSON object
         content_json = {"sections": main_sections_list, "content": content}
-        
+
         # Save as file
-        with open('test.json', 'w', encoding='utf-8') as f:
+        with open("test.json", "w", encoding="utf-8") as f:
             json.dump(content_json, f, ensure_ascii=False, indent=4)
 
         return json.dumps(content_json, indent=2)
-    else:   
+    else:
         return generate_answer(question, openAI_key)
 
 
