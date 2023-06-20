@@ -34,7 +34,27 @@ def pdf_to_text(path, start_page=1, end_page=None):
         text_list.append(text)
 
     doc.close()
+
+    print(len(text_list))
     return text_list
+
+
+def prepend_and_concat(string_list, prefix, end_page):
+    # Start with an empty string
+    result = ""
+
+    # Ensure end_page is not greater than the length of string_list
+    end_page = min(end_page, len(string_list))
+
+    # Iterate over each string in the list up to end_page
+    for count, string in enumerate(string_list[:end_page]):
+        # Prepend the prefix and append a newline, then add to the result
+        result += prefix + f" {count+1}: " + string + "\n"
+
+    result = result.replace("’", "'")
+
+    # Return the resulting string
+    return result
 
 
 def text_to_chunks(texts, word_length=150, start_page=1):
@@ -101,7 +121,7 @@ def load_recommender(path, start_page=1):
 
 
 def generate_text(
-    openAI_key, prompt, role="user", max_tokens=2048, model="gpt-3.5-turbo-0301"
+    openAI_key, prompt, role="user", max_tokens=3000, model="gpt-3.5-turbo-16k"
 ):
     openai.api_key = openAI_key
     completions = openai.ChatCompletion.create(
@@ -110,12 +130,13 @@ def generate_text(
         max_tokens=max_tokens,
         temperature=0.7,
     )
+
+    print(completions)
     message = completions.choices[0].message["content"]
-    print(message)
     return message
 
 
-def generate_answer(question, openAI_key): # TODO Fix this prompt
+def generate_answer(question, openAI_key):  # TODO Fix this prompt
     topn_chunks = recommender(question)
     prompt = ""
     prompt += "search results:\n\n"
@@ -186,6 +207,36 @@ def get_main_sections(openAI_key):
     return main_sections
 
 
+def generate_summary(knowledge_level, paper_text, openAI_key):
+    prompt = (
+        "Instructions: Given the following paper, please identify the main sections of the content and reformat/rewrite them along with any relevant subsections into parts of a blog post. "
+        f"Use a writing style understandable for users with an {knowledge_level} knowledge level and typical for a blog post. Don't use repetetive sentence starts. "
+        "Skip these sections in the paper: 'References', 'Acknowledgements' and 'Sources'. Put detailed focus on the main points of the paper and make sure each section is understandable and informative. You can combine multiple sections and subsections if appropriate. "
+        "Only include information found in the paper and don't add any additional information. Make sure the content is correct and don't output false content. "
+        "The output should be a JSON with two lists: 'section_titles' and 'sections'. Each index in the 'section_titles' list should correspond to the same index in the 'sections' list. Don't add the titles to the sections."
+        "Use the following output format:\n"
+        "{\n"
+        '"section_titles": ["Section 1 title", "Section 2 title", "..."],\n'
+        '"sections": ["Text", "Text 2", "..."],\n'
+        "}\n\n"
+        "Think step by step.\nText:\n\n"
+    )
+
+    prompt += paper_text
+
+    #   " Using the given search results reformat the following section of a paper into a part of a blog post. "
+    #     f"Make the content understandable for someone with the knowledge level of {knowledge_level}. "
+    #     "Only include information found in the section and don't add any additional information. Make sure the content "
+    #     "is correct and don't output false content. Ensure the content is clear, concise, organized, and accurate. Think step by step.\n\n"
+    #     f"Research paper sections: {sections}\n"
+    #     f"Research paper current section: {section}\n\n"
+
+    prompt += "Output:\n\n"
+
+    answer = generate_text(openAI_key, prompt, max_tokens=4000)
+    return answer
+
+
 def question_answer(url, file_path, question, summarize, knowledge_level, openAI_key):
     if openAI_key.strip() == "":
         return "[ERROR]: Please enter you Open AI Key. Get your key here : https://platform.openai.com/account/api-keys"
@@ -198,39 +249,54 @@ def question_answer(url, file_path, question, summarize, knowledge_level, openAI
     if url.strip() != "":
         glob_url = url
         download_pdf(glob_url, "corpus.pdf")
-        load_recommender("corpus.pdf")
+        # load_recommender("corpus.pdf")
+        string_list = pdf_to_text("corpus.pdf")
 
     else:
-        load_recommender(file_path)
+        # load_recommender(file_path)
+        string_list = pdf_to_text(file_path)
 
-    if question.strip() == "" or summarize:
-        main_sections = get_main_sections(openAI_key)
-        main_sections_list = [
-            section.strip().replace(".", "")
-            for section in main_sections.split(",")
-            if section.strip()  # TODO fix prompt no references and no page numbers in blog
-        ]
-        content = []
+    paper_text = prepend_and_concat(
+        string_list=string_list, prefix="Page", end_page=len(string_list) - 1
+    )
+
+    if question.strip() == "debug":
+        with open("test.json", "r") as f:
+            data = json.load(f)
+        return data
+    elif question.strip() == "" or summarize:
+        # main_sections = get_main_sections(openAI_key)
+        # main_sections_list = [
+        #     section.strip().replace(".", "")
+        #     for section in main_sections.split(",")
+        #     if section.strip()  # TODO fix prompt no references and no page numbers in blog
+        # ]
+        # content = []
         # print(main_sections_list)
 
-        for section in main_sections_list:
-            content.append(
-                generate_blog_post_section(
-                    knowledge_level, section, main_sections, openAI_key
-                )
-            )
-            # break
+        # for section in main_sections_list:
+        #     content.append(
+        #         generate_blog_post_section(
+        #             knowledge_level, section, main_sections, openAI_key
+        #         )
+        #     )
+        # break
 
-        print(content)
+        summary = generate_summary(knowledge_level, paper_text, openAI_key)
 
-        # Save the content as a JSON object
-        content_json = {"sections": main_sections_list, "content": content}
+        print(summary)
+
+        # Convert the string to a dictionary
+        summary_dict = json.loads(summary)
+
+        # # Save the content as a JSON object
+        # content_json = {"sections": main_sections_list, "content": content}
 
         # Save as file
         with open("test.json", "w", encoding="utf-8") as f:
-            json.dump(content_json, f, ensure_ascii=False, indent=4)
+            json.dump(summary_dict, f, ensure_ascii=False, indent=4)
 
-        return json.dumps(content_json, indent=2)
+        return json.dumps(summary_dict, indent=2)
     else:
         return generate_answer(question, openAI_key)
 

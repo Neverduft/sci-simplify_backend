@@ -35,7 +35,7 @@ async def upload_pdf(pdf: UploadFile = File(...)):
 
         openAI_key=""
         url = ""
-        question = "" # TODO
+        question = "debug" # TODO
         answer = pdfGPT.question_answer(url, saved_file_path, question, True, "intermediate", openAI_key)
 
         return JSONResponse(content={"message": answer}, status_code=200)
