@@ -2,3 +2,6 @@ PyMuPDF
 numpy>=1.22.0
 scikit-learn
 openai>=0.27.0
+fastapi
+python-multipart
+uvicorn
