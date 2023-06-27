@@ -2,11 +2,9 @@ import urllib.request
 import fitz
 import re
 import numpy as np
-import tensorflow_hub as hub
 import openai
 import json
 import os
-from sklearn.neighbors import NearestNeighbors
 
 
 def download_pdf(url, output_path):
@@ -78,38 +76,38 @@ def text_to_chunks(texts, word_length=150, start_page=1):
     return chunks
 
 
-class SemanticSearch:
-    def __init__(self):
-        self.use = hub.load(
-            "sentence-encoder"
-        )  # Download model from here https://tfhub.dev/google/universal-sentence-encoder/4
-        self.fitted = False
+# class SemanticSearch:
+#     def __init__(self):
+#         self.use = hub.load(
+#             "sentence-encoder"
+#         )  # Download model from here https://tfhub.dev/google/universal-sentence-encoder/4
+#         self.fitted = False
 
-    def fit(self, data, batch=1000, n_neighbors=5):
-        self.data = data
-        self.embeddings = self.get_text_embedding(data, batch=batch)
-        n_neighbors = min(n_neighbors, len(self.embeddings))
-        self.nn = NearestNeighbors(n_neighbors=n_neighbors)
-        self.nn.fit(self.embeddings)
-        self.fitted = True
+#     def fit(self, data, batch=1000, n_neighbors=5):
+#         self.data = data
+#         self.embeddings = self.get_text_embedding(data, batch=batch)
+#         n_neighbors = min(n_neighbors, len(self.embeddings))
+#         self.nn = NearestNeighbors(n_neighbors=n_neighbors)
+#         self.nn.fit(self.embeddings)
+#         self.fitted = True
 
-    def __call__(self, text, return_data=True):
-        inp_emb = self.use([text])
-        neighbors = self.nn.kneighbors(inp_emb, return_distance=False)[0]
+#     def __call__(self, text, return_data=True):
+#         inp_emb = self.use([text])
+#         neighbors = self.nn.kneighbors(inp_emb, return_distance=False)[0]
 
-        if return_data:
-            return [self.data[i] for i in neighbors]
-        else:
-            return neighbors
+#         if return_data:
+#             return [self.data[i] for i in neighbors]
+#         else:
+#             return neighbors
 
-    def get_text_embedding(self, texts, batch=1000):
-        embeddings = []
-        for i in range(0, len(texts), batch):
-            text_batch = texts[i : (i + batch)]
-            emb_batch = self.use(text_batch)
-            embeddings.append(emb_batch)
-        embeddings = np.vstack(embeddings)
-        return embeddings
+#     def get_text_embedding(self, texts, batch=1000):
+#         embeddings = []
+#         for i in range(0, len(texts), batch):
+#             text_batch = texts[i : (i + batch)]
+#             emb_batch = self.use(text_batch)
+#             embeddings.append(emb_batch)
+#         embeddings = np.vstack(embeddings)
+#         return embeddings
 
 
 def load_recommender(path, start_page=1):
@@ -301,7 +299,6 @@ def question_answer(url, file_path, question, summarize, knowledge_level, openAI
         return generate_answer(question, openAI_key)
 
 
-recommender = SemanticSearch()
-
+# recommender = SemanticSearch()
 
 # openai.api_key = os.getenv('Your_Key_Here')

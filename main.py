@@ -33,7 +33,7 @@ async def upload_pdf(pdf: UploadFile = File(...)):
         with open(saved_file_path, "wb") as file:
             file.write(await pdf.read())
 
-        openAI_key=""
+        openAI_key="placeholder"
         url = ""
         question = "debug" # TODO
         answer = pdfGPT.question_answer(url, saved_file_path, question, True, "intermediate", openAI_key)
