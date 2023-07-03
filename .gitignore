@@ -2,3 +2,4 @@ sentence-encoder/saved_model.pb
 sentence-encoder/*
 __pycache__/main.cpython-310.pyc
 __pycache__/pdfGPT.cpython-310.pyc
+*.pdf

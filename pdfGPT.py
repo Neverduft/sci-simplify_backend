@@ -207,8 +207,8 @@ def get_main_sections(openAI_key):
 
 def generate_summary(knowledge_level, paper_text, openAI_key):
     prompt = (
-        "Instructions: Given the following paper, please identify the main sections of the content and reformat/rewrite them along with any relevant subsections into parts of a blog post. "
-        f"Use a writing style understandable for users with an {knowledge_level} knowledge level and typical for a blog post. Don't use repetetive sentence starts. "
+        "Instructions: Given the following paper, please identify the main sections of the content and rewrite them along with any relevant subsections into parts of a summarized blog post. "
+        f"Use a writing style typical for a blog post. Don't use repetetive sentence starts. "
         "Skip these sections in the paper: 'References', 'Acknowledgements' and 'Sources'. Put detailed focus on the main points of the paper and make sure each section is understandable and informative. You can combine multiple sections and subsections if appropriate. "
         "Only include information found in the paper and don't add any additional information. Make sure the content is correct and don't output false content. "
         "The output should be a JSON with two lists: 'section_titles' and 'sections'. Each index in the 'section_titles' list should correspond to the same index in the 'sections' list. Don't add the titles to the sections."
@@ -259,9 +259,9 @@ def question_answer(url, file_path, question, summarize, knowledge_level, openAI
     )
 
     if question.strip() == "debug":
-        with open("test.json", "r") as f:
+        with open("test.json", "r", encoding="utf-8") as f:
             data = json.load(f)
-        return data
+        return json.dumps(data, indent=2)
     elif question.strip() == "" or summarize:
         # main_sections = get_main_sections(openAI_key)
         # main_sections_list = [
